@@ -1,4 +1,4 @@
-# Joplin to Obsidian Migration Tool
+# Joplin to Obsidian Migration Tool 🔄
 
 A Python tool to convert Joplin notebook exports (markdown + front matter format) into a format suitable for Obsidian vaults. This tool reorganizes resources, cleans up file names, and removes Joplin-specific metadata to create a cleaner Obsidian-compatible structure.
 
