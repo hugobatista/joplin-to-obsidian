@@ -18,20 +18,45 @@ If an issue already exists, comment on it to signal your intent so work isn't du
 
 PRs that are too large to review efficiently will be asked to be split.
 
+## Setup
+
+```bash
+git clone https://github.com/YOUR_USERNAME/joplin-to-obsidian.git
+cd joplin-to-obsidian
+uv sync --group dev
+```
+
+## Development Commands
+
+| Command | Action |
+|---------|--------|
+| `uv run ruff check .` | Lint |
+| `uv run ruff format .` | Format |
+| `uv run mypy` | Type check |
+| `uv run pytest` | Test (with coverage) |
+| `uv run hatch run validate` | All checks |
+
+## Before Submitting
+
+Run the full validation suite:
+
+```bash
+uv run hatch run check
+```
+
+This runs linting, formatting checks, type checking, and tests.
+
 ## Getting Started
 
 1. **Fork the repository** on GitHub
-2. **Clone your fork** locally:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/joplin-to-obsidian.git
-   ```
+2. **Clone your fork** locally (see above)
 3. **Create a branch** with a descriptive name:
    ```bash
    git checkout -b fix/description-of-fix
    # or
    git checkout -b feat/description-of-feature
    ```
-4. **Make your changes** and push:
+4. **Make your changes**, run validation, and push:
    ```bash
    git push -u origin YOUR_BRANCH_NAME
    ```

@@ -1,0 +1,100 @@
+[project]
+name = "joplin-to-obsidian"
+version = "0.2.0"
+description = "Migrate Joplin notebook exports to Obsidian vaults"
+readme = "README.md"
+authors = [
+    { name = "Hugo Batista <code at hugobatista.com>" }
+]
+requires-python = ">=3.10"
+
+dependencies = [
+    "typer>=0.15.0",
+]
+
+[project.scripts]
+joplin-to-obsidian = "joplin_to_obsidian.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/joplin_to_obsidian"]
+
+[tool.uv]
+required-version = "0.11.18"
+exclude-newer = "30 days"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+explicit = true
+
+[dependency-groups]
+lint = [
+    "mypy>=1.11.0",
+    "ruff>=0.6.0",
+]
+test = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+dev = [
+    "hatch>=1.16.5",
+    {include-group = "lint"},
+    {include-group = "test"},
+]
+
+[tool.hatch.envs.default]
+type = "virtual"
+path = ".venv"
+
+[tool.hatch.envs.default.scripts]
+lint = "ruff check . --fix"
+format = "ruff format ."
+lint-check = "ruff check ."
+format-check = "ruff format --check ."
+test = "pytest"
+typecheck = "mypy"
+validate = ["lint", "format", "test", "typecheck"]
+check = ["lint-check", "format-check", "test", "typecheck"]
+
+[tool.pytest.ini_options]
+addopts = "--tb=short --strict-markers --cov --cov-report=term-missing"
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/joplin_to_obsidian"]
+omit = ["*/__init__.py", "*/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 100
+exclude_lines = [
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+incremental = false
+check_untyped_defs = true
+files = ["src"]
+exclude = ["tests/"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"

@@ -1,2 +1,26 @@
-/.mypy_cache
-/__pycache__
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+.venv/
+
+# Tools
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Coverage
+.coverage
+coverage/
+coverage.xml
+htmlcov/
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Environment
+.env

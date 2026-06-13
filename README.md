@@ -1,68 +1,83 @@
 # Joplin to Obsidian Migration Tool 🔄
 
-A Python tool to convert Joplin notebook exports (markdown + front matter format) into a format suitable for Obsidian vaults. This tool reorganizes resources, cleans up file names, and removes Joplin-specific metadata to create a cleaner Obsidian-compatible structure.
+[![GitHub Tag](https://img.shields.io/github/v/tag/hugobatista/joplin-to-obsidian?logo=github&label=latest)](https://go.hugobatista.com/gh/joplin-to-obsidian/releases)
+[![Lint](https://img.shields.io/github/actions/workflow/status/hugobatista/joplin-to-obsidian/lint.yml?label=Lint)](https://go.hugobatista.com/gh/joplin-to-obsidian/actions/workflows/lint.yml)
+[![Test](https://img.shields.io/github/actions/workflow/status/hugobatista/joplin-to-obsidian/test.yml?label=Test)](https://go.hugobatista.com/gh/joplin-to-obsidian/actions/workflows/test.yml)
+[![PyPI - Version](https://img.shields.io/pypi/v/joplin-to-obsidian.svg)](https://pypi.org/project/joplin-to-obsidian)
+[![GHCR Tag](https://img.shields.io/github/v/tag/hugobatista/joplin-to-obsidian?logo=docker&logoColor=white&label=GHCR)](https://go.hugobatista.com/gh/joplin-to-obsidian/packages)
+[![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen?logo=renovatebot)](https://docs.renovatebot.com)
+
+A Python tool to convert Joplin notebook exports (markdown + front matter format) into a format suitable for Obsidian vaults. It reorganizes resources, cleans up file names, and removes Joplin-specific metadata.
 
 ## Migration Workflow
 
-This tool is designed to help you migrate your notes from Joplin to Obsidian in three steps:
-
-1. **Export from Joplin**: Create an export from Joplin using the "Markdown + Front Matter" format
-2. **Process with this tool**: Run this migration tool against your Joplin export to clean and reorganize the files
+1. **Export from Joplin**: Create an export using the "Markdown + Front Matter" format
+2. **Process with this tool**: Run the migration tool against your Joplin export
 3. **Import to Obsidian**: Import the processed files into your Obsidian vault
 
 ## ⚠️ Important Disclaimer
 
-**This tool modifies your files and directories!** Always create a backup of your data before running this tool. The changes are irreversible, and while the tool is designed to be safe, unexpected issues can occur.
+**This tool modifies your files and directories!** Always create a backup before running. The changes are irreversible.
 
 ## What This Tool Does
 
-This tool processes Joplin exports and performs the following operations:
-
-1. **Resource Organization**: Moves resources from the global `_resources` directory to local `_resources` folders next to each markdown file that references them
-2. **File Cleanup**: Removes trailing underscores and spaces from file and folder names
-3. **Directory Cleanup**: Removes empty `_resources` directories after processing
-4. **Metadata Cleanup**: Removes location data (latitude, longitude, altitude) from YAML front matter
-
-## Prerequisites
-
-- Python 3.6 or higher
-- A Joplin export in "Markdown + Front Matter" format
+| Step | Operation | Subcommand |
+|------|-----------|------------|
+| 1 | Move resources from global `_resources` to local folders | `move-resources` |
+| 2 | Remove trailing underscores/spaces from files & folders | — |
+| 3 | Remove empty `_resources` directories | `cleanup-files` |
+| 4 | Remove location data (latitude, longitude, altitude) from YAML front matter | `cleanup-location` |
 
 ## Installation
 
-Clone this repository:
+### pip
+
 ```bash
-git clone https://go.hugobatista.com/gh/joplin-to-obsidian.git
-cd joplin-to-obsidian
+pip install joplin-to-obsidian
 ```
 
-No additional dependencies are required - the tool uses only Python standard library modules.
+### uv
+
+```bash
+uv tool install joplin-to-obsidian
+```
+
+### Docker
+
+```bash
+docker pull ghcr.io/hugobatista/joplin-to-obsidian:latest
+```
 
 ## Usage
 
-### Basic Usage
-
-Run the tool in the directory containing your Joplin export:
+### Run all steps (with confirmation prompt)
 
 ```bash
-python main.py
+joplin-to-obsidian run /path/to/export
 ```
 
-### Specify a Different Directory
+### Run individual steps
 
 ```bash
-python main.py --dir /path/to/your/joplin/export
+joplin-to-obsidian move-resources /path/to/export
+joplin-to-obsidian cleanup-files /path/to/export
+joplin-to-obsidian cleanup-location /path/to/export
 ```
 
-### Get Help
+Run `joplin-to-obsidian --help` for all options.
+
+### Docker
 
 ```bash
-python main.py --help
+# Run all steps
+docker run -it --rm -v /path/to/export:/data ghcr.io/hugobatista/joplin-to-obsidian:latest run /data
+
+# Build from source
+docker build -t joplin-to-obsidian .
+docker run -it --rm -v /path/to/export:/data joplin-to-obsidian run /data
 ```
 
 ## Input Structure
-
-Your Joplin export should have the following structure:
 
 ```
 your-export-folder/
@@ -78,14 +93,7 @@ your-export-folder/
 └── ...
 ```
 
-Where:
-- **Markdown files** (`.md`) contain your notes with YAML front matter
-- **`_resources` directory** contains all attachments and images
-- **Resource links** in markdown files point to `_resources/filename`
-
 ## Output Structure
-
-After processing, the structure becomes:
 
 ```
 your-export-folder/
@@ -103,122 +111,37 @@ your-export-folder/
 └── ...
 ```
 
-## Processing Steps
+## Technical Details
 
-### Step 1: Resource Migration
-
-The tool scans all markdown files for resource references and moves the corresponding files from the global `_resources` directory to local `_resources` folders next to each markdown file.
-
-**Supported link formats:**
-- Markdown images: `![alt text](../_resources/image.png)`
-- Markdown links: `[link text](../_resources/document.pdf)`
-- HTML images: `<img src="../_resources/image.png" />`
-
-**After processing:**
-- `![alt text](../_resources/image.png)` → `![alt text](./_resources/image.png)`
-- `[link text](../_resources/document.pdf)` → `[link text](./_resources/document.pdf)`
-
-### Step 2: File Name Cleanup
-
-Removes trailing underscores and spaces from files and folders while avoiding conflicts:
-
-**Examples:**
-- `My Note_.md` → `My Note.md`
-- `Folder Name_ /` → `Folder Name/`
-- `Document   .pdf` → `Document.pdf`
-
-### Step 3: Directory Cleanup
-
-Removes empty `_resources` directories that no longer contain any files after the migration.
-
-### Step 4: Metadata Cleanup
-
-Removes location-specific metadata from YAML front matter:
-
-**Before:**
-```yaml
----
-title: My Note
-created: 2023-01-01T10:00:00.000Z
-latitude: 40.7128
-longitude: -74.0060
-altitude: 10.5
----
-```
-
-**After:**
-```yaml
----
-title: My Note
-created: 2023-01-01T10:00:00.000Z
----
-```
-
-## Examples
-
-### Example 1: Basic Migration
-
-```bash
-# Navigate to your Joplin export directory
-cd ~/Downloads/joplin-export
-
-# Run the migration tool
-python /path/to/joplin-to-obsidian/main.py
-
-# The tool will show what it will do and ask for confirmation
-```
-
-### Example 2: Process a Specific Directory
-
-```bash
-# Process a specific directory
-python main.py --dir ~/Documents/my-joplin-notes
-
-# The tool will process the specified directory
-```
-
-### Example 3: Batch Processing
-
-```bash
-# You can process multiple exports by running the tool multiple times
-for dir in ~/Downloads/joplin-export-*; do
-    echo "Processing $dir"
-    python main.py --dir "$dir"
-done
-```
+- **Language**: Python 3.10+
+- **Dependencies**: Typer (for CLI), otherwise standard library
+- **File Encoding**: UTF-8
 
 ## Troubleshooting
 
-### Common Issues
+### "Resource not found" errors
 
-1. **"Resource not found" errors**: This happens when markdown files reference resources that don't exist in the `_resources` directory. The tool will skip these references and continue processing.
+Markdown files may reference resources that don't exist in the `_resources` directory. The tool skips these and continues.
 
-2. **Permission errors**: Make sure you have write permissions for the directory and all its contents.
+### Permission errors
 
-3. **File conflicts**: If the cleanup process would create duplicate names, the tool automatically appends numbers to avoid conflicts.
+Ensure you have write permissions for the directory and all its contents.
+
+### File conflicts
+
+If cleanup creates duplicate names, the tool automatically appends numbers to avoid conflicts.
 
 ### Validation
 
-After running the tool, verify that:
-- All your markdown files still open correctly
+After running, verify that:
+- All markdown files still open correctly
 - Images and attachments are still accessible
-- No important data was lost (this is why backups are crucial!)
-
-## Technical Details
-
-- **Language**: Python 3.6+
-- **Dependencies**: None (uses only standard library)
-- **File Encoding**: UTF-8
-- **Supported Platforms**: Cross-platform (Windows, macOS, Linux)
+- No important data was lost
 
 ## Contributing
 
-Issues and pull requests are welcome! Please feel free to contribute improvements or report bugs.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-**Remember**: Always backup your data before using this tool!
+MIT — see [LICENSE](LICENSE).
