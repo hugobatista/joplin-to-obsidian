@@ -39,6 +39,9 @@ def move_resources(root_dir):
                 for match in re.finditer(r'!?\[[^\]]*\]\((?:\.\./)*_resources/([^) "]+)[^)]*\)', content):
                     resource_encoded = match.group(1)
                     resource_decoded = unquote(resource_encoded)
+                    if os.path.basename(resource_decoded) != resource_decoded or resource_decoded in ('.', '..'):
+                        print_error(f"Invalid resource path in link: {resource_encoded}")
+                        continue
                     src = os.path.join(resources_dir, resource_decoded)
                     all_matches.append((match, resource_encoded, resource_decoded, 'markdown'))
 
@@ -52,6 +55,9 @@ def move_resources(root_dir):
                 for match in re.finditer(r'<img[^>]+src="(?:\.\./)*_resources/([^"]+)"[^>]*>', content):
                     resource_encoded = match.group(1)
                     resource_decoded = unquote(resource_encoded)
+                    if os.path.basename(resource_decoded) != resource_decoded or resource_decoded in ('.', '..'):
+                        print_error(f"Invalid resource path in link: {resource_encoded}")
+                        continue
                     src = os.path.join(resources_dir, resource_decoded)
                     all_matches.append((match, resource_encoded, resource_decoded, 'html'))
 
