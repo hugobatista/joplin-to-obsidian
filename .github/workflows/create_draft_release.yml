@@ -1,0 +1,52 @@
+name: create_draft_release
+
+on:
+  workflow_dispatch:
+
+run-name: ${{ github.ref_name }} -> create_draft_release ( ${{ github.run_attempt }} )
+
+jobs:
+
+  create_draft_release:
+    name: create_draft_release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+
+    - name: Echo current date and time
+      id: datetime
+      run: |
+        echo "datetime: $(date '+%Y-%m-%d %H:%M:%S')"
+
+    - name: Checkout
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        fetch-depth: 1
+
+    - name: Get version
+      id: get_version
+      run: |
+        export version=$(grep "^version = " pyproject.toml | head -1 | sed 's/version = "\([^"]*\)".*/\1/')
+        echo "version=$version" >> $GITHUB_OUTPUT
+
+    #validates that the version is a valid semver
+    - name: Validate version
+      id: validate_version
+      run: |
+        if [[ ! ${{ steps.get_version.outputs.version }} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Invalid version: ${{ steps.get_version.outputs.version }}"
+          exit 1
+        fi
+
+    - name: Create release branch
+      run: |
+        git checkout -b "release/v${{ steps.get_version.outputs.version }}"
+        git push origin "release/v${{ steps.get_version.outputs.version }}"
+
+    - name: Create DRAFT release through github cli and upload assets
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release create v${{ steps.get_version.outputs.version }} --title v${{ steps.get_version.outputs.version }} --generate-notes --draft
