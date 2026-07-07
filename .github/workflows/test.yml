@@ -34,7 +34,7 @@ jobs:
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
 
       - name: Sync dependencies
-        run: uv sync --frozen --no-dev --group test --no-install-project
+        run: uv sync --frozen --no-dev --group test
 
       - name: Run tests
         run: uv run --no-sync pytest
