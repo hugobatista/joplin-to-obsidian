@@ -7,10 +7,20 @@ from urllib.parse import unquote
 from joplin_to_obsidian.utils import atomic_write_text, print_error, print_status
 
 
-def move_resources(root_dir: Path) -> None:
+def move_resources(root_dir: Path, dry_run: bool = False) -> None:
     resources_dir = root_dir / "_resources"
-    print_status(f"Starting resource migration from: {resources_dir}")
+    if dry_run:
+        print(f"Would process resources from: {resources_dir}")
+        md_count = 0
+        copied_names: set[str] = set()
+        update_count = 0
+        save_count = 0
+        saved_names: set[str] = set()
+    else:
+        print_status(f"Starting resource migration from: {resources_dir}")
     copied_sources: set[Path] = set()
+    would_cleanup: set[Path] = set()
+    already_at_target: list[str] = []
 
     for root_str, dir_strs, files in os.walk(root_dir):
         root = Path(root_str)
@@ -21,7 +31,12 @@ def move_resources(root_dir: Path) -> None:
             local_resources_dir = root / "_resources"
 
             content = md_path.read_text(encoding="utf-8")
-            print_status(f"Processing Markdown file: {md_path}")
+            content = content.replace("\r\n", "\n")
+
+            if dry_run:
+                md_count += 1
+            else:
+                print_status(f"Processing Markdown file: {md_path}")
 
             resources_to_copy: dict[str, tuple[str, Path]] = {}
             all_matches: list[tuple[re.Match[str], str, str, str]] = []
@@ -47,7 +62,8 @@ def move_resources(root_dir: Path) -> None:
                         resource_decoded,
                         src,
                     )
-                    print_status(f"Found resource: {resource_decoded}")
+                    if not dry_run:
+                        print_status(f"Found resource: {resource_decoded}")
                 elif not src.exists() and resource_encoded not in resources_to_copy:
                     print_error(f"Resource not found: {src}")
 
@@ -70,13 +86,15 @@ def move_resources(root_dir: Path) -> None:
                         resource_decoded,
                         src,
                     )
-                    print_status(f"Found resource: {resource_decoded}")
+                    if not dry_run:
+                        print_status(f"Found resource: {resource_decoded}")
                 elif not src.exists() and resource_encoded not in resources_to_copy:
                     print_error(f"Resource not found: {src}")
 
             if resources_to_copy:
-                local_resources_dir.mkdir(parents=True, exist_ok=True)
-                print_status(f"Created _resources directory: {local_resources_dir}")
+                if not dry_run:
+                    local_resources_dir.mkdir(parents=True, exist_ok=True)
+                    print_status(f"Created _resources directory: {local_resources_dir}")
 
                 for resource_encoded, (
                     resource_decoded,
@@ -84,19 +102,22 @@ def move_resources(root_dir: Path) -> None:
                 ) in resources_to_copy.items():
                     dst = local_resources_dir / resource_decoded
                     if src.resolve() == dst.resolve():
-                        print_status(f"Resource already at target: {resource_decoded}")
+                        already_at_target.append(resource_decoded)
                         continue
-                    print_status(f"Copying: {resource_decoded}")
-                    try:
-                        shutil.copy2(src, dst)
-                        copied_sources.add(src)
-                        print_status(f"Copied {resource_decoded} to _resources")
-                    except Exception as e:
-                        err_msg = "Error copying"
-                        ref = f"(referenced in {file}): {e}"
-                        print_error(f"{err_msg} {resource_decoded} {ref}")
+                    if dry_run:
+                        copied_names.add(resource_decoded)
+                        would_cleanup.add(src)
+                    else:
+                        print_status(f"Copying: {resource_decoded}")
+                        try:
+                            shutil.copy2(src, dst)
+                            copied_sources.add(src)
+                            print_status(f"Copied {resource_decoded} to _resources")
+                        except Exception as e:
+                            err_msg = "Error copying"
+                            ref = f"(referenced in {file}): {e}"
+                            print_error(f"{err_msg} {resource_decoded} {ref}")
 
-                # Rebuild content by replacing matches at their original positions
                 cursor = 0
                 segments: list[str] = []
                 for (
@@ -118,32 +139,52 @@ def move_resources(root_dir: Path) -> None:
                     elif original_link.startswith("!["):
                         new_link = f"![](./_resources/{resource_decoded})"
                     else:
-                        link_text_match = re.match(
-                            r"\[([^\]]*)\]", original_link
-                        )
-                        link_text = (
-                            link_text_match.group(1) if link_text_match else ""
-                        )
-                        new_link = (
-                            f"[{link_text}](./_resources/{resource_decoded})"
-                        )
+                        link_text_match = re.match(r"\[([^\]]*)\]", original_link)
+                        link_text = link_text_match.group(1) if link_text_match else ""
+                        new_link = f"[{link_text}](./_resources/{resource_decoded})"
                     segments.append(new_link)
                     cursor = match.end()
-                    update_msg = f"Updated {link_type} link for"
-                    print_status(f"{update_msg} {resource_decoded} in {file}")
+                    if dry_run:
+                        update_count += 1
 
                 segments.append(content[cursor:])
                 content = "".join(segments)
 
-                atomic_write_text(md_path, content)
-                print_status(f"Saved updated {file}")
-            else:
-                print_status(f"No resources found in {file}")
+                if dry_run:
+                    save_count += 1
+                    saved_names.add(str(md_path.relative_to(root_dir)))
+                else:
+                    atomic_write_text(md_path, content)
+                    print_status(f"Saved updated {file}")
 
-    if copied_sources:
-        cleanup_msg = "Cleaning up: deleting"
+    if dry_run:
+        if md_count:
+            print(f"  scanned {md_count} markdown files")
+        if copied_names:
+            names = sorted(copied_names)
+            print(f"  would copy {len(names)} resource(s):")
+            for name in names:
+                print(f"    - {name}")
+        if already_at_target:
+            names = sorted(set(already_at_target))
+            print(f"  {len(names)} resource(s) already at target:")
+            for name in names:
+                print(f"    - {name}")
+        if update_count:
+            print(f"  would update {update_count} link(s)")
+        if save_count:
+            print(f"  would save {save_count} file(s):")
+            for name in sorted(saved_names):
+                print(f"    - {name}")
+        if would_cleanup:
+            names = sorted(s.name for s in would_cleanup)
+            print(f"  would delete {len(names)} original(s):")
+            for name in names:
+                print(f"    - {name}")
+    elif copied_sources:
         print_status(
-            f"{cleanup_msg} {len(copied_sources)} original files from {resources_dir}"
+            f"Cleaning up: deleting {len(copied_sources)} "
+            f"original files from {resources_dir}"
         )
         for src in sorted(copied_sources, key=lambda p: str(p)):
             try:

@@ -17,7 +17,7 @@ A Python tool to convert Joplin notebook exports (markdown + front matter format
 
 ## ⚠️ Important Disclaimer
 
-**This tool modifies your files and directories!** Always create a backup before running. The changes are irreversible.
+**This tool modifies your files and directories!** Always create a backup before running. The changes are irreversible. Use `--dry-run` to preview changes first.
 
 ## What This Tool Does
 
@@ -56,6 +56,33 @@ docker pull ghcr.io/hugobatista/joplin-to-obsidian:latest
 joplin-to-obsidian run /path/to/export
 ```
 
+### Preview changes (dry run)
+
+```bash
+joplin-to-obsidian --dry-run run /path/to/export
+```
+
+Shows exactly what would happen without modifying any files:
+
+```
+  Step 1: Moving resources to _resources folders
+  would copy 3 resource(s):
+    - WebClipper.png
+  would save 1 file(s):
+    - Welcome!/4. Tips.md
+
+  Step 2: Removing trailing underscores
+  Would rename: /path/export/note_.md -> /path/export/note.md
+
+  Step 4: Removing location data from YAML front matter
+  Would remove location data from 5 files in Welcome!/:
+    - 1. Welcome to Joplin!.md
+    - 2. Importing and exporting notes.md
+    - 3. Synchronising your notes.md
+    - 4. Tips.md
+    - 5. Joplin Privacy Policy.md
+```
+
 ### Run individual steps
 
 ```bash
@@ -64,7 +91,17 @@ joplin-to-obsidian cleanup-files /path/to/export
 joplin-to-obsidian cleanup-location /path/to/export
 ```
 
-Run `joplin-to-obsidian --help` for all options.
+Each subcommand also supports `--dry-run`:
+
+```bash
+joplin-to-obsidian --dry-run move-resources /path/to/export
+```
+
+### Show version
+
+```bash
+joplin-to-obsidian --version
+```
 
 ### Docker
 

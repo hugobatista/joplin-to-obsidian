@@ -14,7 +14,7 @@ def _available_path(base: Path) -> Path:
     return path
 
 
-def remove_trailing_underscores(directory: Path) -> None:
+def remove_trailing_underscores(directory: Path, dry_run: bool = False) -> None:
     renames: list[tuple[Path, Path]] = []
     for root_str, dir_strs, files in os.walk(directory):
         root = Path(root_str)
@@ -35,15 +35,20 @@ def remove_trailing_underscores(directory: Path) -> None:
                 new_name = dir_name.rstrip("_ ")
                 renames.append((old_path, _available_path(root / new_name)))
 
-    # Sort deepest-first so children are renamed before parents
     renames.sort(key=lambda r: str(r[0]), reverse=True)
 
     for old_path, new_path in renames:
-        print_status(f"Renaming: {old_path} -> {new_path}")
-        old_path.rename(new_path)
+        if dry_run:
+            print(f"  Would rename: {old_path} -> {new_path}")
+        else:
+            print_status(f"Renaming: {old_path} -> {new_path}")
+            old_path.rename(new_path)
+
+    if dry_run and renames:
+        print(f"  Would rename {len(renames)} files/directories total")
 
 
-def remove_empty_resources_dirs(directory: Path) -> list[Path]:
+def remove_empty_resources_dirs(directory: Path, dry_run: bool = False) -> list[Path]:
     removed_dirs: list[Path] = []
     for root_str, dir_strs, files in os.walk(directory, topdown=False):
         root = Path(root_str)
@@ -53,9 +58,17 @@ def remove_empty_resources_dirs(directory: Path) -> list[Path]:
                 dir_path = root / dir_name
                 try:
                     if not any(dir_path.iterdir()):
-                        print_status(f"Removing empty _resources directory: {dir_path}")
-                        dir_path.rmdir()
-                        removed_dirs.append(dir_path)
+                        if dry_run:
+                            print(
+                                f"  Would remove empty _resources directory: {dir_path}"
+                            )
+                            removed_dirs.append(dir_path)
+                        else:
+                            print_status(
+                                f"Removing empty _resources directory: {dir_path}"
+                            )
+                            dir_path.rmdir()
+                            removed_dirs.append(dir_path)
                     else:
                         msg = "_resources directory not empty, skipping: "
                         print_status(msg + str(dir_path))
@@ -66,7 +79,7 @@ def remove_empty_resources_dirs(directory: Path) -> list[Path]:
     return removed_dirs
 
 
-def remove_location_frontmatter(directory: Path) -> list[Path]:
+def remove_location_frontmatter(directory: Path, dry_run: bool = False) -> list[Path]:
     processed_files: list[Path] = []
     for root_str, dir_strs, files in os.walk(directory):
         root = Path(root_str)
@@ -77,7 +90,6 @@ def remove_location_frontmatter(directory: Path) -> list[Path]:
                     content = file_path.read_text(encoding="utf-8")
                     if not content.startswith("---"):
                         continue
-                    # Normalize Windows line endings
                     content = content.replace("\r\n", "\n")
                     parts = content.split("---\n", 2)
                     if len(parts) < 3:
@@ -91,7 +103,6 @@ def remove_location_frontmatter(directory: Path) -> list[Path]:
                         front_matter,
                         flags=re.MULTILINE,
                     )
-                    # Remove blank lines that were adjacent to removed fields
                     front_matter = re.sub(r"\n\n+", "\n", front_matter)
                     front_matter = front_matter.strip()
                     if front_matter != original_front_matter:
@@ -99,9 +110,21 @@ def remove_location_frontmatter(directory: Path) -> list[Path]:
                             new_content = f"---\n{front_matter}\n---\n{body}"
                         else:
                             new_content = body
-                        atomic_write_text(file_path, new_content)
-                        print_status(f"Removed location data from: {file_path}")
+                        if not dry_run:
+                            atomic_write_text(file_path, new_content)
+                            print_status(f"Removed location data from: {file_path}")
                         processed_files.append(file_path)
                 except Exception as e:
                     print_error(f"Error processing file {file_path}: {e}")
+
+    if dry_run and processed_files:
+        by_dir: dict[str, list[Path]] = {}
+        for p in processed_files:
+            by_dir.setdefault(str(p.parent), []).append(p)
+        for parent, siblings in sorted(by_dir.items()):
+            rel = os.path.relpath(parent, directory)
+            names = sorted(s.name for s in siblings)
+            print(f"  Would remove location data from {len(siblings)} files in {rel}/:")
+            for name in names:
+                print(f"    - {name}")
     return processed_files

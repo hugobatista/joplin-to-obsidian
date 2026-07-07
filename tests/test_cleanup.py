@@ -118,6 +118,12 @@ Some content
         remove_location_frontmatter(vault)
         assert "latitude" not in md.read_text()
 
+    def test_skips_partial_frontmatter(self, vault: Path) -> None:
+        md = vault / "partial.md"
+        md.write_text("---\nlatitude: 1.0")
+        remove_location_frontmatter(vault)
+        assert "latitude: 1.0" in md.read_text()
+
     def test_handles_read_error(self, vault: Path, monkeypatch) -> None:
         md = vault / "broken.md"
         md.write_text("---\nlatitude: 1.0\n---\nbody")

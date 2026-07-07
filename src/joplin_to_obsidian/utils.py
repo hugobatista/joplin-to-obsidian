@@ -12,23 +12,27 @@ class Colors:
 
 
 def print_status(message: str) -> None:
-    try:
-        terminal_width = os.get_terminal_size().columns
-    except OSError:
-        terminal_width = 80
-    if len(message) > terminal_width:
-        message = message[: terminal_width - 3] + "..."
-    message = message.ljust(terminal_width)
-    print(f"\r{message}", end="")
-    sys.stdout.flush()
+    if sys.stdout.isatty():
+        try:
+            terminal_width = os.get_terminal_size().columns
+        except OSError:
+            terminal_width = 80
+        if len(message) > terminal_width:
+            message = message[: terminal_width - 3] + "..."
+        message = message.ljust(terminal_width)
+        print(f"\r{message}", end="")
+        sys.stdout.flush()
+    else:
+        print(message)
 
 
 def print_error(message: str) -> None:
-    try:
-        terminal_width = os.get_terminal_size().columns
-    except OSError:
-        terminal_width = 80
-    print("\r" + " " * terminal_width)
+    if sys.stdout.isatty():
+        try:
+            terminal_width = os.get_terminal_size().columns
+        except OSError:
+            terminal_width = 80
+        print("\r" + " " * terminal_width)
     print(f"\r{Colors.RED}{message}{Colors.RESET}")
     sys.stdout.flush()
 

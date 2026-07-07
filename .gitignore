@@ -24,3 +24,6 @@ build/
 
 # Environment
 .env
+
+#test data
+test_data/

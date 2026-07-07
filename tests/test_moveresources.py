@@ -78,6 +78,24 @@ class TestMoveResources:
         move_resources(vault)
         assert "![](./_resources/image.png)" in md.read_text()
 
+    def test_dry_run_no_changes(self, nested_vault: Path) -> None:
+        move_resources(nested_vault, dry_run=True)
+        sub_note = nested_vault / "subfolder" / "sub_note.md"
+        root_res = nested_vault / "_resources"
+        assert "![](../_resources/img.png)" in sub_note.read_text()
+        assert (root_res / "img.png").exists()
+
+    def test_dry_run_resource_already_at_target(self, vault: Path) -> None:
+        (vault / "note.md").write_text("![](../_resources/image.png)")
+        move_resources(vault, dry_run=True)
+        assert (vault / "_resources" / "image.png").exists()
+
+    def test_skips_invalid_ref_among_valid(self, vault: Path) -> None:
+        md = vault / "mixed.md"
+        md.write_text("![](../_resources/image.png)\n![](../_resources/missing.png)")
+        move_resources(vault)
+        assert (vault / "_resources" / "image.png").exists()
+
     def test_handles_copy_error(self, nested_vault: Path, monkeypatch) -> None:
         import shutil
 

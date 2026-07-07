@@ -50,8 +50,19 @@ def main(
             is_eager=True,
         ),
     ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Preview changes without modifying any files.",
+        ),
+    ] = False,
 ) -> None:
-    pass
+    ctx.obj = {"dry_run": dry_run}
+
+
+def _get_dry_run(ctx: typer.Context) -> bool:
+    return ctx.obj.get("dry_run", False) if ctx.obj else False
 
 
 def _validate_dir(directory: Path) -> Path:
@@ -62,11 +73,13 @@ def _validate_dir(directory: Path) -> Path:
     return resolved
 
 
-def _run_all(directory: Path) -> None:
+def _run_all(directory: Path, dry_run: bool) -> None:
     tool_name = f"{Colors.YELLOW}Obsidian Vault Migration"
     print(f"{tool_name} and Cleanup Tool{Colors.RESET}")
     print("=" * 50)
     print(f"Target directory: {Colors.BLUE}{directory}{Colors.RESET}")
+    if dry_run:
+        print(f"\n{Colors.YELLOW}DRY RUN — no files will be modified{Colors.RESET}")
     expected = f"\n{Colors.YELLOW}Expected input:{Colors.RESET}"
     print(f"{expected} Joplin notebook export in markdown + front matter format")
     print("The directory should contain:")
@@ -76,8 +89,9 @@ def _run_all(directory: Path) -> None:
     print("\nThis script will perform the following operations:")
     for i, operation in enumerate(OPERATIONS, 1):
         print(f"{i}. {operation}")
-    warning = f"\n{Colors.YELLOW}Warning:"
-    print(f"{warning} This script will modify files and directories!{Colors.RESET}")
+    if not dry_run:
+        warning = f"\n{Colors.YELLOW}Warning:"
+        print(f"{warning} This script will modify files and directories!{Colors.RESET}")
 
     try:
         response = input("\nDo you want to continue? (y/N): ").strip().lower()
@@ -89,50 +103,63 @@ def _run_all(directory: Path) -> None:
         print("Operation cancelled.")
         raise typer.Exit(code=0)
 
-    print_status(f"Starting vault processing in: {directory}")
+    if dry_run:
+        print(f"Starting vault processing in: {directory}")
+    else:
+        print_status(f"Starting vault processing in: {directory}")
 
     print_step(1, "Moving resources to _resources folders")
     try:
-        move_resources(directory)
+        move_resources(directory, dry_run=dry_run)
     except Exception as e:
         print_error(f"Error during resource movement: {e}")
         raise typer.Exit(code=1)
 
     print_step(2, "Removing trailing underscores and spaces from files and folders")
     try:
-        remove_trailing_underscores(directory)
+        remove_trailing_underscores(directory, dry_run=dry_run)
     except Exception as e:
         print_error(f"Error during underscore cleanup: {e}")
         raise typer.Exit(code=1)
 
     print_step(3, "Removing empty _resources directories")
     try:
-        removed_dirs = remove_empty_resources_dirs(directory)
-        print_status(f"Removed {len(removed_dirs)} empty _resources directories")
+        removed_dirs = remove_empty_resources_dirs(directory, dry_run=dry_run)
+        if dry_run:
+            print(f"  Would remove {len(removed_dirs)} empty _resources directories")
+        else:
+            print_status(f"Removed {len(removed_dirs)} empty _resources directories")
     except Exception as e:
         print_error(f"Error during empty directory cleanup: {e}")
         raise typer.Exit(code=1)
 
     print_step(4, "Removing location data from YAML front matter")
     try:
-        processed_files = remove_location_frontmatter(directory)
-        print_status(f"Processed {len(processed_files)} markdown files")
+        processed_files = remove_location_frontmatter(directory, dry_run=dry_run)
+        if dry_run:
+            print(f"  Would process {len(processed_files)} markdown files")
+        else:
+            print_status(f"Processed {len(processed_files)} markdown files")
     except Exception as e:
         print_error(f"Error during frontmatter cleanup: {e}")
         raise typer.Exit(code=1)
 
-    print(f"\n{Colors.GREEN}All operations completed successfully!{Colors.RESET}")
+    if dry_run:
+        print(
+            f"\n{Colors.GREEN}Dry run completed. No files were modified.{Colors.RESET}"
+        )
+    else:
+        print(f"\n{Colors.GREEN}All operations completed successfully!{Colors.RESET}")
 
 
-@app.command(
-    help="Run all migration steps with an interactive confirmation prompt."
-)
+@app.command(help="Run all migration steps with an interactive confirmation prompt.")
 def run(
+    ctx: typer.Context,
     directory: Annotated[
         Path, typer.Argument(help="Root directory of the Obsidian vault")
     ] = Path.cwd(),
 ) -> None:
-    _run_all(_validate_dir(directory))
+    _run_all(_validate_dir(directory), dry_run=_get_dry_run(ctx))
 
 
 @app.command(
@@ -141,6 +168,7 @@ def run(
     "folders next to each markdown file, then delete originals.",
 )
 def move_resources_command(
+    ctx: typer.Context,
     directory: Annotated[
         Path, typer.Argument(help="Root directory of the Obsidian vault")
     ] = Path.cwd(),
@@ -148,7 +176,7 @@ def move_resources_command(
     resolved = _validate_dir(directory)
     print_step(1, "Moving resources to _resources folders")
     try:
-        move_resources(resolved)
+        move_resources(resolved, dry_run=_get_dry_run(ctx))
     except Exception as e:
         print_error(f"Error during resource movement: {e}")
         raise typer.Exit(code=1)
@@ -160,6 +188,7 @@ def move_resources_command(
     "then delete empty _resources directories.",
 )
 def cleanup_files_command(
+    ctx: typer.Context,
     directory: Annotated[
         Path, typer.Argument(help="Root directory of the Obsidian vault")
     ] = Path.cwd(),
@@ -167,13 +196,13 @@ def cleanup_files_command(
     resolved = _validate_dir(directory)
     print_step(2, "Removing trailing underscores and spaces from files and folders")
     try:
-        remove_trailing_underscores(resolved)
+        remove_trailing_underscores(resolved, dry_run=_get_dry_run(ctx))
     except Exception as e:
         print_error(f"Error during underscore cleanup: {e}")
         raise typer.Exit(code=1)
     print_step(3, "Removing empty _resources directories")
     try:
-        removed_dirs = remove_empty_resources_dirs(resolved)
+        removed_dirs = remove_empty_resources_dirs(resolved, dry_run=_get_dry_run(ctx))
         print_status(f"Removed {len(removed_dirs)} empty _resources directories")
     except Exception as e:
         print_error(f"Error during empty directory cleanup: {e}")
@@ -186,6 +215,7 @@ def cleanup_files_command(
     "in all markdown files.",
 )
 def cleanup_location_command(
+    ctx: typer.Context,
     directory: Annotated[
         Path, typer.Argument(help="Root directory of the Obsidian vault")
     ] = Path.cwd(),
@@ -193,7 +223,9 @@ def cleanup_location_command(
     resolved = _validate_dir(directory)
     print_step(4, "Removing location data from YAML front matter")
     try:
-        processed_files = remove_location_frontmatter(resolved)
+        processed_files = remove_location_frontmatter(
+            resolved, dry_run=_get_dry_run(ctx)
+        )
         print_status(f"Processed {len(processed_files)} markdown files")
     except Exception as e:
         print_error(f"Error during frontmatter cleanup: {e}")

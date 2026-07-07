@@ -46,6 +46,25 @@ class TestCli:
         assert result.exit_code == 0
         assert "Removing location data" in result.stdout
 
+    def test_dry_run(self, vault: Path) -> None:
+        result = runner.invoke(app, ["--dry-run", "run", str(vault)], input="y\n")
+        assert result.exit_code == 0
+        assert "DRY RUN" in result.stdout
+        assert "will modify files" not in result.stdout
+
+    def test_dry_run_preserves_files(self, vault: Path) -> None:
+        (vault / "note_.md").write_text("trailing underscore")
+        (vault / "loc.md").write_text("---\nlatitude: 1.0\n---\ncontent")
+        (vault / "nested" / "_resources").mkdir(parents=True)
+        result = runner.invoke(app, ["--dry-run", "run", str(vault)], input="y\n")
+        assert result.exit_code == 0
+        assert (vault / "note_.md").exists()
+        assert (vault / "loc.md").read_text() == "---\nlatitude: 1.0\n---\ncontent"
+        assert (vault / "nested" / "_resources").exists()
+        assert "Would rename" in result.stdout
+        assert "Would remove" in result.stdout
+        assert "will modify files" not in result.stdout
+
     def test_errors_on_nonexistent_directory(self, tmp_path: Path) -> None:
         result = runner.invoke(app, ["run", str(tmp_path / "nope")])
         assert result.exit_code == 1
