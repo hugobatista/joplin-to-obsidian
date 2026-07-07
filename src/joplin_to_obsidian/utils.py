@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 
 class Colors:
@@ -35,3 +36,9 @@ def print_error(message: str) -> None:
 def print_step(step_number: int, message: str) -> None:
     print(f"\n{Colors.BLUE}Step {step_number}: {message}{Colors.RESET}")
     print("=" * 50)
+
+
+def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(content, encoding=encoding)
+    tmp.replace(path)

@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from urllib.parse import unquote
 
-from joplin_to_obsidian.utils import print_error, print_status
+from joplin_to_obsidian.utils import atomic_write_text, print_error, print_status
 
 
 def move_resources(root_dir: Path) -> None:
@@ -96,33 +96,46 @@ def move_resources(root_dir: Path) -> None:
                         ref = f"(referenced in {file}): {e}"
                         print_error(f"{err_msg} {resource_decoded} {ref}")
 
+                # Rebuild content by replacing matches at their original positions
+                cursor = 0
+                segments: list[str] = []
                 for (
                     match,
                     resource_encoded,
                     resource_decoded,
                     link_type,
                 ) in all_matches:
-                    if resource_encoded in resources_to_copy:
-                        original_link = match.group(0)
-                        if link_type == "html":
-                            new_link = re.sub(
-                                r'src="(?:\.\./)*_resources/[^"]*"',
-                                f'src="./_resources/{resource_decoded}"',
-                                original_link,
-                            )
-                        elif original_link.startswith("!["):
-                            new_link = f"![](./_resources/{resource_decoded})"
-                        else:
-                            link_text_match = re.match(r"\[([^\]]*)\]", original_link)
-                            link_text = (
-                                link_text_match.group(1) if link_text_match else ""
-                            )
-                            new_link = f"[{link_text}](./_resources/{resource_decoded})"
-                        content = content.replace(original_link, new_link)
-                        update_msg = f"Updated {link_type} link for"
-                        print_status(f"{update_msg} {resource_decoded} in {file}")
+                    if resource_encoded not in resources_to_copy:
+                        continue
+                    segments.append(content[cursor : match.start()])
+                    original_link = match.group(0)
+                    if link_type == "html":
+                        new_link = re.sub(
+                            r'src="(?:\.\./)*_resources/[^"]*"',
+                            f'src="./_resources/{resource_decoded}"',
+                            original_link,
+                        )
+                    elif original_link.startswith("!["):
+                        new_link = f"![](./_resources/{resource_decoded})"
+                    else:
+                        link_text_match = re.match(
+                            r"\[([^\]]*)\]", original_link
+                        )
+                        link_text = (
+                            link_text_match.group(1) if link_text_match else ""
+                        )
+                        new_link = (
+                            f"[{link_text}](./_resources/{resource_decoded})"
+                        )
+                    segments.append(new_link)
+                    cursor = match.end()
+                    update_msg = f"Updated {link_type} link for"
+                    print_status(f"{update_msg} {resource_decoded} in {file}")
 
-                md_path.write_text(content, encoding="utf-8")
+                segments.append(content[cursor:])
+                content = "".join(segments)
+
+                atomic_write_text(md_path, content)
                 print_status(f"Saved updated {file}")
             else:
                 print_status(f"No resources found in {file}")
