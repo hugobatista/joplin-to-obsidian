@@ -10,10 +10,12 @@ from joplin_to_obsidian import (
     remove_trailing_underscores,
 )
 from joplin_to_obsidian.utils import (
-    Colors,
+    blue,
+    green,
     print_error,
     print_status,
     print_step,
+    yellow,
 )
 
 OPERATIONS: list[str] = [
@@ -73,15 +75,28 @@ def _validate_dir(directory: Path) -> Path:
     return resolved
 
 
+def _validate_vault(directory: Path) -> None:
+    if not any(directory.rglob("*.md")):
+        print(
+            f"{yellow('Warning:')} No markdown (.md) files found in "
+            f"{directory}. Nothing to process."
+        )
+    resources_dir = directory / "_resources"
+    if not resources_dir.exists() or not any(resources_dir.iterdir()):
+        print(
+            f"{yellow('Warning:')} _resources directory is empty or "
+            f"missing. Resource migration will be skipped."
+        )
+
+
 def _run_all(directory: Path, dry_run: bool) -> None:
-    tool_name = f"{Colors.YELLOW}Obsidian Vault Migration"
-    print(f"{tool_name} and Cleanup Tool{Colors.RESET}")
+    print(f"{yellow('Obsidian Vault Migration and Cleanup Tool')}")
     print("=" * 50)
-    print(f"Target directory: {Colors.BLUE}{directory}{Colors.RESET}")
+    print(f"Target directory: {blue(str(directory))}")
     if dry_run:
-        print(f"\n{Colors.YELLOW}DRY RUN — no files will be modified{Colors.RESET}")
-    expected = f"\n{Colors.YELLOW}Expected input:{Colors.RESET}"
-    print(f"{expected} Joplin notebook export in markdown + front matter format")
+        print(f"\n{yellow('DRY RUN — no files will be modified')}")
+    print(f"\n{yellow('Expected input:')} Joplin notebook export")
+    print("in markdown + front matter format")
     print("The directory should contain:")
     print("  - Markdown files (.md) exported from Joplin")
     print("  - A '_resources' directory with attachments/images")
@@ -89,9 +104,9 @@ def _run_all(directory: Path, dry_run: bool) -> None:
     print("\nThis script will perform the following operations:")
     for i, operation in enumerate(OPERATIONS, 1):
         print(f"{i}. {operation}")
+    _validate_vault(directory)
     if not dry_run:
-        warning = f"\n{Colors.YELLOW}Warning:"
-        print(f"{warning} This script will modify files and directories!{Colors.RESET}")
+        print(f"\n{yellow('Warning:')} This script will modify files and directories!")
 
     try:
         response = input("\nDo you want to continue? (y/N): ").strip().lower()
@@ -145,11 +160,9 @@ def _run_all(directory: Path, dry_run: bool) -> None:
         raise typer.Exit(code=1)
 
     if dry_run:
-        print(
-            f"\n{Colors.GREEN}Dry run completed. No files were modified.{Colors.RESET}"
-        )
+        print(f"\n{green('Dry run completed. No files were modified.')}")
     else:
-        print(f"\n{Colors.GREEN}All operations completed successfully!{Colors.RESET}")
+        print(f"\n{green('All operations completed successfully!')}")
 
 
 @app.command(help="Run all migration steps with an interactive confirmation prompt.")
@@ -174,6 +187,7 @@ def move_resources_command(
     ] = Path.cwd(),
 ) -> None:
     resolved = _validate_dir(directory)
+    _validate_vault(resolved)
     print_step(1, "Moving resources to _resources folders")
     try:
         move_resources(resolved, dry_run=_get_dry_run(ctx))
@@ -194,6 +208,7 @@ def cleanup_files_command(
     ] = Path.cwd(),
 ) -> None:
     resolved = _validate_dir(directory)
+    _validate_vault(resolved)
     print_step(2, "Removing trailing underscores and spaces from files and folders")
     try:
         remove_trailing_underscores(resolved, dry_run=_get_dry_run(ctx))
@@ -221,6 +236,7 @@ def cleanup_location_command(
     ] = Path.cwd(),
 ) -> None:
     resolved = _validate_dir(directory)
+    _validate_vault(resolved)
     print_step(4, "Removing location data from YAML front matter")
     try:
         processed_files = remove_location_frontmatter(

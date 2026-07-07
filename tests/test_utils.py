@@ -1,15 +1,17 @@
 import sys
 
-from joplin_to_obsidian.utils import Colors, print_error, print_status
+from joplin_to_obsidian.utils import green, print_error, print_status, red, yellow
 
 
 class TestColors:
-    def test_has_color_codes(self) -> None:
-        assert Colors.RED.startswith("\033")
-        assert Colors.GREEN.startswith("\033")
-        assert Colors.YELLOW.startswith("\033")
-        assert Colors.BLUE.startswith("\033")
-        assert Colors.RESET == "\033[0m"
+    def test_red(self) -> None:
+        assert "\033" in red("x")
+
+    def test_green(self) -> None:
+        assert "\033" in green("x")
+
+    def test_yellow(self) -> None:
+        assert "\033" in yellow("x")
 
 
 class TestOutput:

@@ -2,13 +2,23 @@ import os
 import sys
 from pathlib import Path
 
+import click
 
-class Colors:
-    RED = "\033[91m"
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    BLUE = "\033[94m"
-    RESET = "\033[0m"
+
+def red(text: str) -> str:
+    return click.style(text, fg="red")
+
+
+def green(text: str) -> str:
+    return click.style(text, fg="green")
+
+
+def yellow(text: str) -> str:
+    return click.style(text, fg="yellow")
+
+
+def blue(text: str) -> str:
+    return click.style(text, fg="blue")
 
 
 def print_status(message: str) -> None:
@@ -33,12 +43,12 @@ def print_error(message: str) -> None:
         except OSError:
             terminal_width = 80
         print("\r" + " " * terminal_width)
-    print(f"\r{Colors.RED}{message}{Colors.RESET}")
+    click.echo(f"\r{red(message)}")
     sys.stdout.flush()
 
 
 def print_step(step_number: int, message: str) -> None:
-    print(f"\n{Colors.BLUE}Step {step_number}: {message}{Colors.RESET}")
+    click.echo(f"\n{blue(f'Step {step_number}: {message}')}")
     print("=" * 50)
 
 

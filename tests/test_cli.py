@@ -69,6 +69,28 @@ class TestCli:
         result = runner.invoke(app, ["run", str(tmp_path / "nope")])
         assert result.exit_code == 1
 
+    def test_warns_no_markdown(self, tmp_path: Path) -> None:
+        d = tmp_path / "empty"
+        d.mkdir()
+        result = runner.invoke(app, ["run", str(d)], input="y\n")
+        assert result.exit_code == 0
+        assert "No markdown" in result.stdout
+
+    def test_warns_no_resources(self, tmp_path: Path) -> None:
+        d = tmp_path / "vault"
+        d.mkdir()
+        (d / "note.md").write_text("content")
+        result = runner.invoke(app, ["run", str(d)], input="y\n")
+        assert result.exit_code == 0
+        assert "_resources" in result.stdout
+        assert "empty or missing" in result.stdout
+
+    def test_no_warnings_normal_vault(self, vault: Path) -> None:
+        (vault / "note.md").write_text("content")
+        result = runner.invoke(app, ["run", str(vault)], input="y\n")
+        assert result.exit_code == 0
+        assert "No markdown" not in result.stdout
+
     def test_version(self) -> None:
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
