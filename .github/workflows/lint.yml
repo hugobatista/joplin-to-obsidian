@@ -1,0 +1,46 @@
+name: lint
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - '**.py'
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+run-name: ${{ github.ref_name }} -> lint ( ${{ github.run_attempt }} )
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Echo current date and time
+        id: datetime
+        run: |
+          echo "datetime: $(date '+%Y-%m-%d %H:%M:%S')"
+
+      - name: Checkout Code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+      - name: Sync dependencies
+        run: uv sync --frozen --no-dev --group lint --no-install-project
+
+      - name: Lint check
+        run: uv run --no-sync ruff check .
+
+      - name: Format check
+        run: uv run --no-sync ruff format --check .
+
+      - name: Type check
+        run: uv run --no-sync mypy

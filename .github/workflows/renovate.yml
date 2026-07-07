@@ -1,0 +1,52 @@
+name: renovate
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Dry run (no changes)
+        required: false
+        default: false
+        type: boolean
+
+  schedule:
+    - cron: '0 4 * * *'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+
+  renovate:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Set dry-run mode
+        if: ${{ inputs.dry-run == true }}
+        run: echo "RENOVATE_DRY_RUN=full" >> "$GITHUB_ENV"
+
+      - name: Set repository
+        run: |
+          if [ -z "${RENOVATE_REPOSITORIES:-}" ]; then
+            echo "RENOVATE_REPOSITORIES=${{ github.repository }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set LOG_LEVEL
+        run: |
+          if [ -z "${LOG_LEVEL:-}" ]; then
+            echo "LOG_LEVEL=info" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run Renovate
+        uses: docker://ghcr.io/renovatebot/renovate:43.169.4@sha256:4c84638a2b70b2fe2c3bbf87d25e6f8aba40d83f8ca2b7c0bd3d0f1a4591ef7b
+        env:
+          RENOVATE_CONFIG_FILE: renovate.json
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}

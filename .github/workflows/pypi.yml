@@ -1,0 +1,65 @@
+# yamllint disable rule:line-length
+name: pypi
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+run-name: ${{ github.ref_name }} -> pypi ( ${{ github.run_attempt }} )
+
+jobs:
+
+  pypi:
+    name: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+
+    - name: Echo current date and time
+      id: datetime
+      run: |
+        echo "datetime: $(date '+%Y-%m-%d %H:%M:%S')"
+
+    - name: Checkout
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        fetch-depth: 1
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+    - name: Get version
+      id: get_version
+      run: |
+        export version=$(grep "^version = " pyproject.toml | head -1 | sed 's/version = "\([^"]*\)".*/\1/')
+        echo "version=$version" >> $GITHUB_OUTPUT
+
+    #validates that the version is a valid semver
+    - name: Validate version
+      id: validate_version
+      run: |
+        if [[ ! ${{ steps.get_version.outputs.version }} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Invalid version: ${{ steps.get_version.outputs.version }}"
+          exit 1
+        fi
+
+    - name: Build package
+      run: uv build
+
+    - name: Display structure of build files
+      id: display_build_files
+      run: |
+        ls -R dist/
+
+    - name: Archive all artifacts in dist/
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: dist-v${{ steps.get_version.outputs.version }}
+        path: dist/
+        if-no-files-found: error
+
+    - name: Publish to PyPi
+      uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0

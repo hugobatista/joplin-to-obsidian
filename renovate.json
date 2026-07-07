@@ -1,0 +1,42 @@
+{
+  "extends": [
+    "config:recommended"
+  ],
+  "minimumReleaseAge": "30 days",
+  "dependencyDashboard": true,
+  "pinDigests": true,
+  "osvVulnerabilityAlerts": true,
+  "timezone": "UTC",
+  "gitAuthor": "hugobatista <hugobatista@users.noreply.github.com>",
+  "labels": [
+    "dependencies"
+  ],
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 10,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "before 4am on monday"
+    ]
+  },
+  "packageRules": [
+    {
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "non-major dependency updates"
+    },
+    {
+      "matchCategories": [
+        "security"
+      ],
+      "labels": [
+        "dependencies",
+        "security"
+      ],
+      "prPriority": 10,
+      "groupName": "security updates"
+    }
+  ]
+}
